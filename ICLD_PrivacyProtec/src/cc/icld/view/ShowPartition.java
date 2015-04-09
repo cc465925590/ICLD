@@ -19,6 +19,7 @@ import cc.icld.model.BlockInfo;
 import cc.icld.model.ColumnCount;
 import cc.icld.util.Common;
 import cc.icld.util.InitialDataset;
+import cc.icld.util.InitialDatasetForPGR;
 import cc.icld.util.WekaType;
 
 public class ShowPartition extends HttpServlet {
@@ -49,6 +50,9 @@ public class ShowPartition extends HttpServlet {
 			doTopPartition(request, response);
 		} else if ("doFinalPartition".equals(method)) {
 			doFinalPartition(request, response);
+		}
+		else if ("doPGRPartition".equals(method)) {
+			doPGRPartition(request, response);
 		}
 	}
 
@@ -160,6 +164,29 @@ public class ShowPartition extends HttpServlet {
 		request.setAttribute("GLPValue", GLPValue);
 		RequestDispatcher dispatcher = request
 				.getRequestDispatcher("finalpartition.jsp");
+		dispatcher.forward(request, response);
+	}
+
+	/**
+	 * PGR划分
+	 * 
+	 * @serialData 2015.1.12
+	 */
+	public void doPGRPartition(HttpServletRequest request, HttpServletResponse response)
+			throws ServletException, IOException {
+		List<ColumnCount> attriList = null;// 排序后的属性名及其包含的不同值的属性个数
+		InitialDatasetForPGR idsetPGR = new InitialDatasetForPGR();// 初始化数据集
+		try {
+			attriList = idsetPGR.InitDataset(Common.NSAs);
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		Partition PGRpartition = new Partition();
+		PGRpartition.PGR(InitialDatasetForPGR.MyDataSet, Common.SA, Common.L);
+		request.setAttribute("FinalNSAs", this.FinalNSAs);
+		request.setAttribute("FinalBlockList", PGRpartition.FinalBlockList);
+		RequestDispatcher dispatcher = request.getRequestDispatcher("pgr.jsp");
 		dispatcher.forward(request, response);
 	}
 }

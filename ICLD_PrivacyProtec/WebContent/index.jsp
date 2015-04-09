@@ -60,6 +60,9 @@
 		else
 		window.open("http://localhost:8080/ICLD_PrivacyProtec/ShowPartition?method=doTopPartition&&chestr="+chestr);
 	}
+	function doPGRPartition(){
+		window.open("http://localhost:8080/ICLD_PrivacyProtec/ShowPartition?method=doPGRPartition");
+	}
 </script>
 <%
 	List<ColumnCount> attriList = (List<ColumnCount>) request
@@ -99,6 +102,7 @@
 		<tr>
 			<td><button onclick="javascript:SelectAll111();">全选/反选</button></td>
 			<td><button onclick="javascript:doTopPartition();">第一层划分</button></td>
+			<td><button onclick="javascript:doPGRPartition();">PGR划分</button></td>
 		</tr>
 	</table>
 	<%

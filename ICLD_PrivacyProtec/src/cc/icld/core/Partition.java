@@ -10,6 +10,7 @@ import java.util.Random;
 import java.util.Set;
 
 import cc.icld.model.BlockInfo;
+import cc.icld.util.Common;
 
 public class Partition {
 	public List<BlockInfo> BlockSetList = new ArrayList<BlockInfo>();// 用来保存φ1划分后生成的块
@@ -329,5 +330,35 @@ public class Partition {
 			probility = probility + (float) sum / (float) SGSet.size();
 		}
 		return probility;
+	}
+
+	/**
+	 * PGR算法 新增 (φ2划分(算法3.4)的一点改变)
+	 * 
+	 * @param BlockSet输入的是原始数据集
+	 * @serialData 2015.1.12
+	 */
+	public void PGR(LinkedList<Map<String, Object>> BlockSet, String SA, int L) {
+		this.R(BlockSet, SA, L);// 先进行整表随机扰动
+		FinalPatition(BlockSet, L, Common.NSAs, 0);// 生成了FinalBlockList
+		// 从每个划分块中再随机选一个值代表所块中所有的SA
+		for (LinkedList<Map<String, Object>> Block : this.FinalBlockList) {
+			int index = new Random().nextInt(Block.size());
+			Set<String> SAset = (Set<String>) Block.get(index).get("SASet");
+			int randomnum = new Random().nextInt(SAset.size());
+			int i = 0;
+			String sa = null;
+			for (String satemp : SAset) {
+				if (i == randomnum)
+					sa = satemp;
+				i++;
+			}
+			for (Map<String, Object> record : Block) {
+				Set<String> SAsettemp = (Set<String>) record.get("SASet");
+				SAsettemp.clear();
+				SAsettemp.add(sa);
+				record.put("SASet", SAsettemp);// 把块中的每条记录的sa值都置为随机出来的那个sa
+			}
+		}
 	}
 }
