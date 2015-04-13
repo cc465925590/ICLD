@@ -1,5 +1,6 @@
 package cc.icld.core;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -10,7 +11,11 @@ import java.util.Random;
 import java.util.Set;
 
 import cc.icld.model.BlockInfo;
+import cc.icld.model.ColumnCount;
 import cc.icld.util.Common;
+import cc.icld.util.CountTest;
+import cc.icld.util.InitialDataset;
+import cc.icld.util.WekaType;
 
 public class Partition {
 	public List<BlockInfo> BlockSetList = new ArrayList<BlockInfo>();// 用来保存φ1划分后生成的块
@@ -87,7 +92,7 @@ public class Partition {
 		boolean flag = false;
 		Set<String> SASet = new HashSet<String>();
 		for (Map<String, Object> obj : Block)
-			SASet.add((String) obj.get(SA));
+			SASet.add(obj.get(SA).toString());
 		if (SASet.size() >= L)
 			flag = true;
 		return flag;
@@ -360,5 +365,107 @@ public class Partition {
 				record.put("SASet", SAsettemp);// 把块中的每条记录的sa值都置为随机出来的那个sa
 			}
 		}
+	}
+
+	/** 最终SA的随机化,并返回最终的数据集 */
+	private List<LinkedList<Map<String, Object>>> DoSARandom(
+			List<LinkedList<Map<String, Object>>> finalBlockList,
+			String[] NSAs, String SA) {
+		List<LinkedList<Map<String, Object>>> publishBlockList = new ArrayList<LinkedList<Map<String, Object>>>();
+		for (List<Map<String, Object>> recordList : finalBlockList) {
+			LinkedList<Map<String, Object>> block = new LinkedList<Map<String, Object>>();
+			for (int j = 0; j < recordList.size(); j++) {
+				Map<String, Object> record = new HashMap<String, Object>();
+				@SuppressWarnings("unchecked")
+				Set<String> TSASet = (Set<String>) recordList.get(j).get(
+						"SASet");// SA是从SASet集合中随机选一个
+				Random rd = new Random();
+				int randomnum = rd.nextInt(TSASet.size());
+				int i = 0;
+				String SAValue = "";
+				for (String str : TSASet) {
+					if (i == randomnum) {
+						SAValue = str;
+						break;
+					} else
+						i++;
+				}
+				record.put(SA, SAValue.trim());
+				for (String NSA : NSAs) {
+					record.put(NSA, recordList.get(j).get(NSA));
+				}
+				block.add(record);
+			}
+			publishBlockList.add(block);
+		}
+		return publishBlockList;
+	}
+
+	/**
+	 * 一个完整划分过程
+	 * 
+	 * @serialData 2015.4.13
+	 */
+	public void IntegratedPartition() {
+		String[] attributes = Common.NSAs;
+		List<ColumnCount> attriList = null;// 排序后的属性名及其包含的不同值的属性个数
+		int topSize = 3;// 第一层划分的属性个数
+		String TopNSAs[] = new String[topSize];// 需要进行高层划分的属性
+
+		Partition toppartition = new Partition();
+		String SA = Common.SA;
+		LinkedList<Map<String, Object>> DataSet = null;
+		InitialDataset idset = new InitialDataset();
+		try {
+			attriList = idset.InitDataset(attributes);// 初始化数据集
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		String FinalNSAs[] = new String[attriList.size()];
+		for (int i = 0; i < topSize; i++) {
+			TopNSAs[i] = attriList.get(i).getColName();
+		}
+		for (int i = 0; i < attriList.size(); i++) {
+			FinalNSAs[i] = attriList.get(i).getColName();
+		}
+		DataSet = idset.MyDataSet;// 经过初始化的数据集
+		/* 高层划分 */
+		toppartition.TopPartition(DataSet, Common.L, Common.K, TopNSAs, 0, SA);
+		/* φ2层划分 */
+		Partition finalpartition = new Partition();
+		// 进行划分操作
+		if (toppartition.BlockSetList != null
+				&& toppartition.BlockSetList.size() > 0) {
+			for (BlockInfo blockObj : toppartition.BlockSetList) {
+				finalpartition.FinalPatition(blockObj.getBlock(), Common.K,
+						FinalNSAs, blockObj.getLevel());
+			}
+		}
+		if (finalpartition.FinalBlockList != null
+				&& finalpartition.FinalBlockList.size() > 0) {
+			// 进行2层的SA值集扰动
+			List<Set<String>> SASetList = new ArrayList<Set<String>>();
+			for (LinkedList<Map<String, Object>> Block : finalpartition.FinalBlockList) {
+				Set<String> SASet = finalpartition.g(Block, Common.K, Common.D,
+						SA);
+				SASetList.add(SASet);
+			}
+		}
+		// 生成最终扰动后的数据集
+		List<LinkedList<Map<String, Object>>> publishBlockList = DoSARandom(
+				finalpartition.FinalBlockList, Common.NSAs, Common.SA);
+		// 计算相对错误率
+		CountTest countTest = new CountTest();
+		List<Map<String, Object>> queryList = countTest.CreateCountQuery(20,
+				Common.TABLENAME);
+		float avgResult = countTest.CountForGen(finalpartition.FinalBlockList,
+				publishBlockList, queryList);
+		System.out.println("avgResult = " + avgResult);
+	}
+	
+	public static void main(String[] args) {
+		Partition test = new Partition();
+		test.IntegratedPartition();
 	}
 }
